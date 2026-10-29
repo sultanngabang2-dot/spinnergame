@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Roda Berputar - Tebak-tebakan Seru</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f8ff;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        p.subtitle {
+            color: #7f8c8d;
+            margin-bottom: 20px;
+        }
+        .wheel-container {
+            position: relative;
+            width: 320px;
+            height: 320px;
+            margin: 0 auto 30px auto;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+        }
+        .pointer {
+            position: absolute;
+            top: 50%;
+            right: -20px;
+            transform: translateY(-50%);
+            width: 0;
+            height: 0;
+            border-top: 15px solid transparent;
+            border-bottom: 15px solid transparent;
+            border-right: 30px solid #e74c3c;
+            z-index: 10;
+        }
+        button.spin-btn {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.3s;
+        }
+        button.spin-btn:hover {
+            background-color: #2ecc71;
+        }
+        button.spin-btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        /* Modal Soal */
+        #question-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .question-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2980b9;
+        }
+        .option-btn {
+            display: block;
+            width: 100%;
+            background-color: #ecf0f1;
+            border: 2px solid #bdc3c7;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-align: left;
+        }
+        .option-btn:hover {
+            background-color: #d4e6f1;
+            border-color: #3498db;
+        }
+        #result-msg {
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 15px;
+            display: none;
+        }
+        .close-btn {
+            margin-top: 15px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Roda Berputar Edukasi</h1>
+    <p class="subtitle">Putar rodanya dan jawab tebak-tebakannya!</p>
+
+    <div class="wheel-container">
+        <div class="pointer"></div>
+        <canvas id="wheel" width="400" height="400"></canvas>
+    </div>
+
+    <button id="spin-btn" class="spin-btn" onclick="spinWheel()">PUTAR RODA!</button>
+
+    <!-- Modal Soal -->
+    <div id="question-modal">
+        <div class="modal-content">
+            <h2 id="q-number" style="margin-top:0; color:#8e44ad;">Soal</h2>
+            <div id="q-text" class="question-text"></div>
+            
+            <button class="option-btn" id="opt-a" onclick="checkAnswer('A')"></button>
+            <button class="option-btn" id="opt-b" onclick="checkAnswer('B')"></button>
+            <button class="option-btn" id="opt-c" onclick="checkAnswer('C')"></button>
+
+            <div id="result-msg"></div>
+            <button id="close-btn" class="close-btn" onclick="closeModal()">Tutup & Lanjut Main</button>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            { id: 1, text: "Benda apa yang selalu bawa rumahnya ke mana-mana?", a: "A. Kucing", b: "B. Siput", c: "C. Burung", ans: "B" },
+            { id: 2, text: "Punya gigi banyak tapi tidak pernah menggigit. Benda apakah itu?", a: "A. Gergaji", b: "B. Sisir", c: "C. Ritsleting", ans: "B" },
+            { id: 3, text: "Buah apa yang punya mahkota di kepalanya tapi bukan raja?", a: "A. Nanas", b: "B. Semangka", c: "C. Apel", ans: "A" },
+            { id: 4, text: "Aku panjang saat masih baru, tapi semakin pendek kalau terus dipakai. Siapakah aku?", a: "A. Penggaris", b: "B. Pensil", c: "C. Sedotan", ans: "B" },
+            { id: 5, text: "Punya empat kaki tapi tidak bisa berjalan. Apakah itu?", a: "A. Sapi", b: "B. Kuda", c: "C. Meja", ans: "C" },
+            { id: 6, text: "Hewan apa yang jago berenang, pakai jas hitam putih, tapi tidak bisa terbang?", a: "A. Penguin", b: "B. Bebek", c: "C. Angsa", ans: "A" },
+            { id: 7, text: "Kalau hujan dia malah naik (terbuka). Benda apakah itu?", a: "A. Jas Hujan", b: "B. Payung", c: "C. Topi", ans: "B" },
+            { id: 8, text: "Benda apa yang baru bisa dipakai setelah dipecahkan?", a: "A. Kaca", b: "B. Telur", c: "C. Piring", ans: "B" },
+            { id: 9, text: "Aku punya banyak halaman, ada tulisannya, tapi aku tidak bisa bicara. Siapakah aku?", a: "A. Televisi", b: "B. Radio", c: "C. Buku", ans: "C" },
+            { id: 10, text: "Orang apa yang kalau berenang atau mandi, rambutnya tidak pernah basah?", a: "A. Orang tinggi", b: "B. Orang botak", c: "C. Orang kuat", ans: "B" },
+            { id: 11, text: "Benda apa yang kalau diikat baru bisa jalan?", a: "A. Sandal", b: "B. Topi", c: "C. Sepatu bertali", ans: "C" },
+            { id: 12, text: "Buah apa yang bijinya ada di luar, warnanya merah, dan punya bintik-bintik?", a: "A. Stroberi", b: "B. Jeruk", c: "C. Rambutan", ans: "A" },
+            { id: 13, text: "Huruf apa yang selalu kedinginan?", a: "A. Huruf A", b: "B. Huruf B (di antara A dan C)", c: "C. Huruf C", ans: "B" },
+            { id: 14, text: "Aku turun dari langit, bisa bikin basah, tapi kalau aku datang orang-orang pada berteduh. Apakah aku?", a: "A. Angin", b: "B. Hujan", c: "C. Pelangi", ans: "B" },
+            { id: 15, text: "Benda apa yang selalu naik tapi tidak pernah turun?", a: "A. Tangga", b: "B. Balon", c: "C. Umur", ans: "C" },
+            { id: 16, text: "Mendung gelap, 5 orang jalan bawa 1 payung kecil. Tapi tidak ada yang basah. Kenapa?", a: "A. Karena payungnya besar", b: "B. Karena mereka pakai jaket", c: "C. Karena belum hujan", ans: "C" },
+            { id: 17, text: "Hewan apa yang tidurnya selalu bergantung terbalik?", a: "A. Monyet", b: "B. Kelelawar", c: "C. Burung Hantu", ans: "B" },
+            { id: 18, text: "Aku bersinar di siang hari, dan bersembunyi di malam hari. Siapakah aku?", a: "A. Bulan", b: "B. Bintang", c: "C. Matahari", ans: "C" },
+            { id: 19, text: "Gajah terbang apanya yang kelihatan?", a: "A. Sayapnya", b: "B. Bohongnya", c: "C. Ekornya", ans: "B" },
+            { id: 20, text: "Pintu apa yang didorong oleh 10 orang kuat tetap tidak bisa terbuka?", a: "A. Pintu besi", b: "B. Pintu rusak", c: "C. Pintu tulisan TARIK", ans: "C" },
+            { id: 21, text: "Ban apa yang enak dimakan?", a: "A. Bandeng", b: "B. Ban mobil", c: "C. Bantal", ans: "A" },
+            { id: 22, text: "Ditusuk bukan sate, dijaring bukan ikan. Makanan apakah itu?", a: "A. Tempe", b: "B. Tahu", c: "C. Bakso", ans: "C" },
+            { id: 23, text: "Aku asalnya dari ulat, tapi aku punya sayap yang sangat indah. Siapakah aku?", a: "A. Lebah", b: "B. Kupu-kupu", c: "C. Capung", ans: "B" },
+            { id: 24, text: "Kunci, kunci apa yang bisa bikin orang senang dan bernyanyi?", a: "A. Kunci gitar", b: "B. Kunci rumah", c: "C. Kunci gembok", ans: "A" },
+            { id: 25, text: "Malam hari aku hidup, siang hari mati. Sering dihinggapi laron. Apakah aku?", a: "A. Lilin", b: "B. Lampu", c: "C. Senter", ans: "B" }
+        ];
+
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        const numSlices = questions.length;
+        const sliceAngle = (2 * Math.PI) / numSlices;
+        const colors = ["#f1c40f", "#e67e22", "#e74c3c", "#9b59b6", "#3498db", "#1abc9c"];
+
+        let currentRotation = 0;
+        let isSpinning = false;
+        let currentQuestion = null;
+
+        // Menggambar Roda
+        function drawWheel() {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = centerX;
+
+            for (let i = 0; i < numSlices; i++) {
+                const startAngle = i * sliceAngle;
+                const endAngle = (i + 1) * sliceAngle;
+
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.stroke();
+
+                // Teks Angka
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#fff";
+                ctx.font = "bold 20px Arial";
+                ctx.fillText(i + 1, radius - 15, 7);
+                ctx.restore();
+            }
+        }
+
+        drawWheel();
+
+        // Logika Putaran
+        function spinWheel() {
+            if (isSpinning) return;
+            isSpinning = true;
+            document.getElementById("spin-btn").disabled = true;
+
+            // Rotasi acak antara 5 hingga 10 putaran penuh (1800 - 3600 derajat) + sudut acak
+            const randomSpin = Math.floor(Math.random() * 1800) + 1800; 
+            currentRotation += randomSpin;
+
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // Tunggu animasi selesai (4 detik sesuai CSS transition)
+            setTimeout(() => {
+                isSpinning = false;
+                document.getElementById("spin-btn").disabled = false;
+                determineWinner();
+            }, 4000);
+        }
+
+        // Menentukan nomor yang terpilih
+        function determineWinner() {
+            // Kalkulasi derajat saat ini (Pointer ada di sisi kanan atau 0 derajat ditarik mundur)
+            const actualDegree = currentRotation % 360;
+            // Pointer di kanan (0 derajat Canvas). Karena CSS rotate berputar searah jarum jam,
+            // irisan yang menyentuh pointer adalah irisan dari belakang.
+            let selectedSlice = Math.floor((360 - actualDegree) / (360 / numSlices));
+            
+            // Koreksi indeks jika bernilai 25 (kembali ke 0)
+            if (selectedSlice === numSlices) selectedSlice = 0;
+
+            const qData = questions[selectedSlice];
+            showQuestion(qData);
+        }
+
+        function showQuestion(qData) {
+            currentQuestion = qData;
+            document.getElementById("q-number").innerText = "Tebakan #" + qData.id;
+            document.getElementById("q-text").innerText = qData.text;
+            document.getElementById("opt-a").innerText = qData.a;
+            document.getElementById("opt-b").innerText = qData.b;
+            document.getElementById("opt-c").innerText = qData.c;
+            
+            // Reset state
+            document.getElementById("result-msg").style.display = "none";
+            document.getElementById("close-btn").style.display = "none";
+            document.querySelectorAll(".option-btn").forEach(btn => btn.disabled = false);
+
+            document.getElementById("question-modal").style.display = "flex";
+        }
+
+        function checkAnswer(selectedAns) {
+            const resultMsg = document.getElementById("result-msg");
+            resultMsg.style.display = "block";
+            document.getElementById("close-btn").style.display = "inline-block";
+            
+            // Matikan tombol agar tidak bisa diklik dua kali
+            document.querySelectorAll(".option-btn").forEach(btn => btn.disabled = true);
+
+            if (selectedAns === currentQuestion.ans) {
+                resultMsg.style.color = "#27ae60";
+                resultMsg.innerText = "🎉 BENAR! Hebat sekali!";
+            } else {
+                resultMsg.style.color = "#e74c3c";
+                resultMsg.innerText = "❌ SALAH! Jawaban yang benar adalah " + currentQuestion.ans + ".";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById("question-modal").style.display = "none";
+        }
+    </script>
+</body>
+</html>
